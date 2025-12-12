@@ -1,3 +1,61 @@
+# ScanMate
+
+React Native (Expo) app for scanning, cropping, compressing, and syncing PDFs with Supabase, VisionCamera, AdMob, and RevenueCat.
+
+## Prerequisites
+- Node 18+ (CI uses Node 20)
+- Expo CLI / EAS CLI
+- Supabase project + CLI
+- RevenueCat project (entitlement id `pro`)
+- AdMob accounts (test IDs used by default)
+
+## Setup
+```bash
+npm install
+npm run lint
+npm run typecheck
+```
+
+### Env vars (`app.config.ts` or `.env`)
+- `EXPO_PUBLIC_SUPABASE_URL`
+- `EXPO_PUBLIC_SUPABASE_ANON_KEY`
+- `EXPO_PUBLIC_RC_API_KEY`
+- `EXPO_PUBLIC_RC_ENTITLEMENT_ID` (default `pro`)
+- `EXPO_PUBLIC_ADMOB_BANNER_ID`, `EXPO_PUBLIC_ADMOB_INTERSTITIAL_ID`, `EXPO_PUBLIC_ADMOB_REWARDED_ID` (test IDs fallback)
+
+### Run
+```bash
+eas build --profile development --platform ios|android   # custom dev client for VisionCamera
+expo start                                               # after installing dev client on device
+```
+
+## Features
+- VisionCamera capture with edge overlay
+- Crop + filters (expo-image-manipulator)
+- PDF assembly (pdf-lib), thumbnails, compression flow
+- Local storage (raw/processed) + MMKV cache
+- Supabase sync scaffolding + Edge Functions stubs
+- Ads (AdMob) with gating, Subscriptions (RevenueCat) with Pro/Ad-free
+- Settings, empty/error states, skeletons
+
+## Backend
+- SQL schema: `backend/supabase/schema.sql`
+- Edge functions: `edge-functions/compress-pdf`, `generate-thumbnail`, `cleanup-temp`
+- Supabase deploy workflow: `.github/workflows/supabase-deploy.yml` (requires `SUPABASE_PROJECT_REF`, `SUPABASE_ACCESS_TOKEN` secrets)
+
+## CI/CD
+- GitHub Actions: `.github/workflows/ci.yml` (lint + typecheck + placeholder tests)
+- EAS config: `eas.json` (dev client, preview, production)
+
+## Notable scripts
+- `npm run lint`
+- `npm run typecheck`
+- `npm run lint:fix`
+
+## TODO / Production hardening
+- Implement real upload/download in sync queue
+- Wire compress/thumbnail edge functions to storage
+- Add tests and viewer flows
 # Welcome to your Expo app 👋
 
 This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).

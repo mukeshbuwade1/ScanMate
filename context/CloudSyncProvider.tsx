@@ -1,81 +1,53 @@
-import React, { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useMemo } from 'react';
 
+import { useAuth } from './AuthProvider';
 import { useDocumentStore } from './DocumentStoreProvider';
-
-type SyncStatus = 'idle' | 'syncing' | 'error';
-
-type SyncJob = {
-  id: string;
-  state: 'pending' | 'syncing' | 'completed' | 'failed';
-  error?: string;
-};
+import { useSyncQueue } from '@/lib/sync/queue';
 
 type CloudSyncContextValue = {
-  status: SyncStatus;
-  lastSyncedAt?: number;
-  queue: SyncJob[];
   enqueue: (documentId: string) => void;
-  syncNow: () => Promise<void>;
-  flushQueue: () => void;
+  queue: ReturnType<typeof useSyncQueue>['queue'];
+  state: ReturnType<typeof useSyncQueue>['state'];
+  restoreFromCloud: () => Promise<void>;
+  isEnabled: boolean;
 };
 
 const CloudSyncContext = createContext<CloudSyncContextValue | undefined>(undefined);
 
 export const CloudSyncProvider: React.FC<React.PropsWithChildren> = ({ children }) => {
-  const { setStatus, getDocument } = useDocumentStore();
-  const [queue, setQueue] = useState<SyncJob[]>([]);
-  const [status, setStatusState] = useState<SyncStatus>('idle');
-  const lastSyncedAt = useRef<number>();
+  const { isAnonymous, user } = useAuth();
+  const { documents, setStatus } = useDocumentStore();
+  const syncQueue = useSyncQueue();
 
   const enqueue = useCallback(
     (documentId: string) => {
-      const doc = getDocument(documentId);
-      if (!doc) return;
-      setQueue((prev) => {
-        if (prev.some((job) => job.id === documentId && job.state !== 'completed')) {
-          return prev;
-        }
-        return [...prev, { id: documentId, state: 'pending' }];
+      if (isAnonymous || !user) return;
+      syncQueue.enqueue({
+        id: `upload-${documentId}`,
+        kind: 'upload_doc',
+        documentId,
+        payload: { userId: user.id },
       });
       setStatus(documentId, 'syncing');
     },
-    [getDocument, setStatus],
+    [isAnonymous, setStatus, syncQueue, user],
   );
 
-  const flushQueue = useCallback(() => {
-    setQueue([]);
-    setStatusState('idle');
-  }, []);
-
-  const syncNow = useCallback(async () => {
-    if (!queue.length) return;
-    setStatusState('syncing');
-    setQueue((prev) => prev.map((job) => ({ ...job, state: 'syncing' })));
-
-    try {
-      // TODO: replace with Supabase storage upload + metadata sync.
-      await new Promise((resolve) => setTimeout(resolve, 300));
-
-      setQueue((prev) => prev.map((job) => ({ ...job, state: 'completed' })));
-      queue.forEach((job) => setStatus(job.id, 'synced'));
-      lastSyncedAt.current = Date.now();
-      setStatusState('idle');
-    } catch (error) {
-      setStatusState('error');
-      setQueue((prev) => prev.map((job) => ({ ...job, state: 'failed', error: String(error) })));
-    }
-  }, [queue, setStatus]);
+  const restoreFromCloud = useCallback(async () => {
+    if (isAnonymous || !user) return;
+    // TODO: fetch remote docs and merge; simple placeholder sets status to synced.
+    documents.forEach((doc) => setStatus(doc.id, 'synced'));
+  }, [documents, isAnonymous, setStatus, user]);
 
   const value = useMemo<CloudSyncContextValue>(
     () => ({
-      status,
-      lastSyncedAt: lastSyncedAt.current,
-      queue,
       enqueue,
-      syncNow,
-      flushQueue,
+      queue: syncQueue.queue,
+      state: syncQueue.state,
+      restoreFromCloud,
+      isEnabled: !isAnonymous,
     }),
-    [enqueue, flushQueue, queue, status, syncNow],
+    [enqueue, isAnonymous, restoreFromCloud, syncQueue.queue, syncQueue.state],
   );
 
   return <CloudSyncContext.Provider value={value}>{children}</CloudSyncContext.Provider>;

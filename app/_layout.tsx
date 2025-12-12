@@ -12,6 +12,7 @@ import { AppThemeProvider } from '@/context/ThemeProvider';
 import { AuthProvider } from '@/context/AuthProvider';
 import { CloudSyncProvider } from '@/context/CloudSyncProvider';
 import { DocumentStoreProvider } from '@/context/DocumentStoreProvider';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -26,10 +27,12 @@ export default function RootLayout() {
             <DocumentStoreProvider>
               <CloudSyncProvider>
                 <AdsProvider>
-                  <Stack screenOptions={{ headerShown: false }}>
-                    <Stack.Screen name="(tabs)" />
-                    <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-                  </Stack>
+                  <ErrorBoundary>
+                    <Stack screenOptions={{ headerShown: false }}>
+                      <Stack.Screen name="(tabs)" />
+                      <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+                    </Stack>
+                  </ErrorBoundary>
                 </AdsProvider>
               </CloudSyncProvider>
             </DocumentStoreProvider>
